@@ -27,16 +27,21 @@ update_database() {
   # Make output directory writable for container
   make_dir_writable "$REPO_DIR"
 
-  # Build Docker image (always use x86_64 for repo update - it's architecture independent)
-  build_docker_image "$BUILD_DIR" "x86_64" "$MIRROR"
+  # repo-add is architecture independent, so run it in whichever builder
+  # image is native to this host. Forcing linux/amd64 needs binfmt emulation
+  # on an aarch64 host and fails without it; on x86_64 this is the same image
+  # as before.
+  local host_arch
+  host_arch="$(uname -m)"
+  build_docker_image "$BUILD_DIR" "$host_arch" "$MIRROR"
 
-  # Run repo-add in Docker container (always use x86_64 image)
-  docker run --rm --platform linux/amd64 \
+  # Run repo-add in Docker container
+  docker run --rm $(get_platform_arg "$host_arch") \
     -e ARCH="$ARCH" \
     -e MIRROR="$MIRROR" \
     -v "$BUILD_ROOT/pkgs.omarchy.org:/output" \
     -v "$BUILD_DIR:/build:ro" \
-    omarchy-pkg-builder:latest-x86_64-$MIRROR /build/update-repo.sh
+    "omarchy-pkg-builder:latest-$host_arch-$MIRROR" /build/update-repo.sh
 }
 
 # Main execution
