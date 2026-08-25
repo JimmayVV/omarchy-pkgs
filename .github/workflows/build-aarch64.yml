@@ -83,7 +83,8 @@ jobs:
           MIRROR="${INPUT_MIRROR:-edge}"
           PACKAGES="${INPUT_PACKAGES:-$ISO_PACKAGES}"
           case "$MIRROR" in edge|stable) ;; *) echo "invalid mirror: $MIRROR" >&2; exit 1 ;; esac
-          if ! [[ $PACKAGES =~ ^[A-Za-z0-9._+ -]+$ ]]; then echo "invalid package list" >&2; exit 1; fi
+          re='^[A-Za-z0-9._+ -]+$'
+          if ! [[ $PACKAGES =~ $re ]]; then echo "invalid package list" >&2; exit 1; fi
           {
             echo "MIRROR=$MIRROR"
             echo "PACKAGES=$PACKAGES"
