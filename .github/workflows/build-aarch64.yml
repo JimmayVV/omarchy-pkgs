@@ -4,12 +4,22 @@ name: aarch64 package repo
 # runner and publishes it as a workflow artifact. Nothing here touches the
 # x86_64 path: the sync-* workflows and bin/repo's defaults are unchanged.
 #
-# Two entry points:
+# Three entry points:
+#   push               -- every change to the package set on the snapdragon
+#                         branch rebuilds what moved (the tree is cached).
 #   workflow_dispatch  -- build on demand from a branch of this repository.
 #   workflow_call      -- called by omarchy-iso's aarch64 ISO workflow so the
 #                         ISO build can consume the repo from the same run.
 
 on:
+  push:
+    branches: [snapdragon]
+    paths:
+      - "pkgbuilds/**"
+      - "bin/**"
+      - "build/**"
+      - "helpers/**"
+      - ".github/workflows/build-aarch64.yml"
   workflow_dispatch:
     inputs:
       packages:
