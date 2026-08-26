@@ -16,9 +16,10 @@ pkgname='omarchy-settings'
 # omarchy-side deviation, as .omarchy/patches do for AUR packages; retire by
 # pointing source back at basecamp/omarchy and dropping the suffix.
 _tag=''
-_commit='cc01f4bd047f235ed32a35539fd8d02231b75372'
+# 1.2 = snapdragon-diag (firmware.sh + visible boot console) for the G1q install debugging.
+_commit='26b846bfd9ecbc174d133f714d881942e66c3e0f'
 pkgver=4.0.1rc3
-pkgrel=1.1
+pkgrel=1.2
 pkgdesc='Omarchy user defaults, /etc/skel content, fonts, plymouth theme, and support helpers'
 arch=('any')
 url='https://github.com/basecamp/omarchy'
@@ -114,7 +115,7 @@ if [[ -n "${OMARCHY_SRC:-}" ]]; then
   sha256sums=()
 else
   source=("omarchy::git+https://github.com/JimmayVV/omarchy.git#commit=${_commit}")
-  sha256sums=('5137c1324db9b37ea1d64b133635e28641536f8734e8405420f6ad8c837ba7ae')
+  sha256sums=('f5dad9dd8a3d366df71abc16c5e6a8d5a22686df76c8566a0d6fb0879dcabb0a')
 fi
 
 prepare() {
