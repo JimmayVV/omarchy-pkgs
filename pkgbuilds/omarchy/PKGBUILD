@@ -17,9 +17,9 @@ pkgname='omarchy'
 # pointing source back at basecamp/omarchy and dropping the suffix.
 _tag=''
 # 1.2 = snapdragon-diag (firmware.sh + visible boot console) for the G1q install debugging.
-_commit='26b846bfd9ecbc174d133f714d881942e66c3e0f'
+_commit='e7cc8b8888700285f0551657f556f7b32ce57675'
 pkgver=4.0.1rc3
-pkgrel=1.2
+pkgrel=1.3
 pkgdesc='Beautiful, modern, and opinionated Arch Linux by DHH'
 arch=('any')
 url='https://github.com/basecamp/omarchy'
