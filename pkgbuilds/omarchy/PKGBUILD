@@ -16,10 +16,10 @@ pkgname='omarchy'
 # omarchy-side deviation, as .omarchy/patches do for AUR packages; retire by
 # pointing source back at basecamp/omarchy and dropping the suffix.
 _tag=''
-# 1.3 = snapdragon-diag (qcom-firmware-extract in firmware.sh + visible boot console) for the G1q install debugging.
-_commit='e7cc8b8888700285f0551657f556f7b32ce57675'
+# 1.4 = snapdragon-diag (qcom-firmware-extract + DSPs off on USB root + visible boot console) for the G1q install debugging.
+_commit='2e4b715844826a8daf6c3355084f569d678a0976'
 pkgver=4.0.1rc3
-pkgrel=1.3
+pkgrel=1.4
 pkgdesc='Beautiful, modern, and opinionated Arch Linux by DHH'
 arch=('any')
 url='https://github.com/basecamp/omarchy'
@@ -86,7 +86,7 @@ if [[ -n "${OMARCHY_SRC:-}" ]]; then
   sha256sums=()
 else
   source=("omarchy::git+https://github.com/JimmayVV/omarchy.git#commit=${_commit}")
-  sha256sums=('33531b05fff05d2b824b52a4d7e2fa78b7ce1afb5e97f05e769f3968d657358a')
+  sha256sums=('43a0be2c035ba93c6ad45e01cb26d957b1907d3fc0a17c9fb3807c991a3c5fac')
 fi
 
 prepare() {
