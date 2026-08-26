@@ -66,6 +66,7 @@ jobs:
       # ISO substitutes Arch Linux ARM's quickshell for it.
       ISO_PACKAGES: >-
         omarchy-keyring ttf-jetbrains-mono-nerd-basic limine-mkinitcpio-hook limine-snapper-sync
+        linux-aarch64-pkgbase-shim
         omarchy-settings omarchy omarchy-nvim
         aether cliamp herdr localsend-bin mise-bin omacalc omacut omawrite omarchy-chromium-bin
         ttfx yay tobi-try ttf-ia-writer ufw-docker xdg-terminal-exec yaru-icon-theme
