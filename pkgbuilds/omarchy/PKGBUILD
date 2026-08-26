@@ -10,10 +10,15 @@
 #    provenance only (empty when cut from a bare commit). omarchy and
 #    omarchy-settings must always carry identical _tag/_commit/pkgver/sha256sums.
 pkgname='omarchy'
+# Snapdragon: built from JimmayVV/omarchy@snapdragon, which is upstream PR
+# basecamp/omarchy#8039 (aarch64 runtime guards) plus the install/hardware/
+# qualcomm layer, until both are merged upstream. pkgrel .1 marks the
+# omarchy-side deviation, as .omarchy/patches do for AUR packages; retire by
+# pointing source back at basecamp/omarchy and dropping the suffix.
 _tag=''
-_commit='0f4abeec8e0a5bb54e0f08d671a9e1b86fa62453'
+_commit='cc01f4bd047f235ed32a35539fd8d02231b75372'
 pkgver=4.0.1rc3
-pkgrel=1
+pkgrel=1.1
 pkgdesc='Beautiful, modern, and opinionated Arch Linux by DHH'
 arch=('any')
 url='https://github.com/basecamp/omarchy'
@@ -79,8 +84,8 @@ if [[ -n "${OMARCHY_SRC:-}" ]]; then
   source=()
   sha256sums=()
 else
-  source=("omarchy::git+https://github.com/basecamp/omarchy.git#commit=${_commit}")
-  sha256sums=('37775b69cba9354ca877d66e7cd2615bf0458be230cfa7d171e06c0101aa25b3')
+  source=("omarchy::git+https://github.com/JimmayVV/omarchy.git#commit=${_commit}")
+  sha256sums=('5137c1324db9b37ea1d64b133635e28641536f8734e8405420f6ad8c837ba7ae')
 fi
 
 prepare() {
