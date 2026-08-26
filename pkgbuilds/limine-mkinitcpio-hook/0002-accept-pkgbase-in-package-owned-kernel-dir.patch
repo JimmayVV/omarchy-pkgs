@@ -1,0 +1,28 @@
+Accept a pkgbase file inside a package-owned kernel directory
+
+Arch Linux ARM's kernel packages ship no usr/lib/modules/<ver>/pkgbase.
+Omarchy's linux-aarch64-pkgbase-shim writes one from a pacman hook, so the
+file itself is owned by no package, and limine-mkinitcpio-install skips it.
+Treat a pkgbase whose modules directory is owned by a package the same as an
+owned pkgbase; a leftover directory of a removed kernel is owned by nothing
+and is still skipped.
+
+RETIRE: delete this file and its prepare() line when Arch Linux ARM's
+linux-aarch64 ships pkgbase itself (archlinuxarm/PKGBUILDs#2215 or its
+successor) and linux-aarch64-pkgbase-shim is dropped.
+
+--- a/install/arch-linux/limine-mkinitcpio-hook/usr/share/libalpm/scripts/limine-mkinitcpio-install
++++ b/install/arch-linux/limine-mkinitcpio-hook/usr/share/libalpm/scripts/limine-mkinitcpio-install
+@@ -240,8 +240,10 @@ process_kernel() {
+ 	local pkgbase_file="$1"
+ 
+ 	[[ -f "$pkgbase_file" ]] || return 0
+-	# Skip if pkgbase file is not owned by any package
+-	pacman -Qqo "$pkgbase_file" &>/dev/null || return 0
++	# Skip if neither the pkgbase file nor its kernel directory is owned by a
++	# package (Arch Linux ARM kernels ship no pkgbase; a hook writes one).
++	pacman -Qqo "$pkgbase_file" &>/dev/null ||
++		pacman -Qqo "${pkgbase_file%/pkgbase}" &>/dev/null || return 0
+ 	set_kernel_context "$pkgbase_file" || return 0
+ 
+ 	if [[ "${ENABLE_UKI:-}" == "yes" ]] && is_uefi; then

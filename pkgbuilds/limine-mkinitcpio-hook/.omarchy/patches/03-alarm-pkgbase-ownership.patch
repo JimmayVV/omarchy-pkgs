@@ -1,0 +1,66 @@
+diff --color -Nur p2/0002-accept-pkgbase-in-package-owned-kernel-dir.patch p3/0002-accept-pkgbase-in-package-owned-kernel-dir.patch
+--- a/0002-accept-pkgbase-in-package-owned-kernel-dir.patch	1969-12-31 19:00:00.000000000 -0500
++++ b/0002-accept-pkgbase-in-package-owned-kernel-dir.patch	2026-08-25 21:02:21.864213933 -0400
+@@ -0,0 +1,28 @@
++Accept a pkgbase file inside a package-owned kernel directory
++
++Arch Linux ARM's kernel packages ship no usr/lib/modules/<ver>/pkgbase.
++Omarchy's linux-aarch64-pkgbase-shim writes one from a pacman hook, so the
++file itself is owned by no package, and limine-mkinitcpio-install skips it.
++Treat a pkgbase whose modules directory is owned by a package the same as an
++owned pkgbase; a leftover directory of a removed kernel is owned by nothing
++and is still skipped.
++
++RETIRE: delete this file and its prepare() line when Arch Linux ARM's
++linux-aarch64 ships pkgbase itself (archlinuxarm/PKGBUILDs#2215 or its
++successor) and linux-aarch64-pkgbase-shim is dropped.
++
++--- a/install/arch-linux/limine-mkinitcpio-hook/usr/share/libalpm/scripts/limine-mkinitcpio-install
+++++ b/install/arch-linux/limine-mkinitcpio-hook/usr/share/libalpm/scripts/limine-mkinitcpio-install
++@@ -240,8 +240,10 @@ process_kernel() {
++ 	local pkgbase_file="$1"
++ 
++ 	[[ -f "$pkgbase_file" ]] || return 0
++-	# Skip if pkgbase file is not owned by any package
++-	pacman -Qqo "$pkgbase_file" &>/dev/null || return 0
+++	# Skip if neither the pkgbase file nor its kernel directory is owned by a
+++	# package (Arch Linux ARM kernels ship no pkgbase; a hook writes one).
+++	pacman -Qqo "$pkgbase_file" &>/dev/null ||
+++		pacman -Qqo "${pkgbase_file%/pkgbase}" &>/dev/null || return 0
++ 	set_kernel_context "$pkgbase_file" || return 0
++ 
++ 	if [[ "${ENABLE_UKI:-}" == "yes" ]] && is_uefi; then
+diff --color -Nur p2/PKGBUILD p3/PKGBUILD
+--- a/PKGBUILD	2026-08-25 20:59:40.101506829 -0400
++++ b/PKGBUILD	2026-08-25 21:02:21.860947850 -0400
+@@ -11,8 +11,13 @@
+ # 0001: Zesko !63 (merged 2026-08-25, not in a tagged release yet) -- without
+ # it limine-install and limine-entry-tool --add-uki refuse every architecture
+ # but x86_64. Retire when pkgver is the first tag that contains it.
++# 0002: Arch Linux ARM kernels ship no usr/lib/modules/<ver>/pkgbase;
++# linux-aarch64-pkgbase-shim writes one that no package owns, and
++# limine-mkinitcpio-install skips unowned pkgbase files. Retire together with
++# the shim (archlinuxarm/PKGBUILDs#2215 or its successor).
+ source=("${_pkgname}::git+${url}.git#tag=${pkgver}"
+-        "0001-support-limine-uefi-architectures.patch")
++        "0001-support-limine-uefi-architectures.patch"
++        "0002-accept-pkgbase-in-package-owned-kernel-dir.patch")
+ source_x86_64=("https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.1.3/graalvm-community-jdk-25i1-25.0.3_linux-x64_bin.tar.gz")
+ # Arch Linux ARM ships no gradle package, so aarch64 builds from Gradle's own
+ # binary distribution (the same version Arch packages). Retire the extra
+@@ -41,6 +46,7 @@
+ backup=(etc/limine-entry-tool.conf)
+ conflicts=('limine-entry-tool')
+ sha256sums=('e0a1d5800ef1b0a79eee935d1a295d4b929a713686e8bb8340484d402deb5621'
++            'SKIP'
+             'SKIP')
+ sha256sums_x86_64=('e9cd1637be853e105f8b09125b4b19fbce385696465d782cbca8bb80e1df8f0d')
+ sha256sums_aarch64=('5e79978983439d28506ebef82254fe9f98995121208dc8be77c604f4ad5bc579'
+@@ -58,6 +64,7 @@
+ 	if [[ "$CARCH" == aarch64 ]]; then
+ 		cd "$srcdir/${_pkgname}"
+ 		patch -p1 -i "$srcdir/0001-support-limine-uefi-architectures.patch"
++		patch -p1 -i "$srcdir/0002-accept-pkgbase-in-package-owned-kernel-dir.patch"
+ 	fi
+ }
+ 
