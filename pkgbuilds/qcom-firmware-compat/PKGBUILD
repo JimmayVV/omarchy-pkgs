@@ -1,0 +1,68 @@
+# Maintainer: Jimmy Van Veen
+
+# Redistributable audio glue for Snapdragon laptops that upstream has not
+# named yet. Nothing here is a new file: every entry points a machine's own
+# name at a file two upstreams already ship for identical hardware, so each
+# one is a rename upstream can make in a single line -- and this package
+# exists only until they do.
+#
+# The kernel asks for a topology (DSP graph) named after the device tree's
+# sound `model` property, and alsa-ucm-conf picks a card configuration by the
+# machine's DMI strings. A laptop upstream has not been told about therefore
+# gets no sound card at all (topology missing => the ASoC card never
+# registers) and no mixer routing (no UCM match => no speaker or headset
+# path), even when its hardware is identical to a machine that works.
+#
+# arch=('any') on purpose: the omarchy repo's package lists are downloaded by
+# the x86_64 ISO build too, and every file here is inert on a machine whose
+# device tree and DMI strings do not name it.
+#
+# RETIRE per file, as each upstream lands its line:
+#   * HP EliteBook Ultra G1q topology -> a linux-firmware WHENCE `Link:`
+#     (its blob is byte-identical to the OmniBook X14, ThinkPad T14s and
+#     Zenbook A14 ones, which are all already links to X1E80100-Romulus).
+#   * HP EliteBook Ultra G1q UCM -> widening the x1e80100 card's DMI regex in
+#     alsa-ucm-conf, which its maintainer has asked for in writing (PR #531).
+# When the last entry retires, drop the package.
+
+pkgname=qcom-firmware-compat
+pkgver=1
+pkgrel=1
+pkgdesc="Topology and UCM names for Snapdragon laptops upstream has not named yet"
+arch=('any')
+url="https://github.com/omacom-io/omarchy-pkgs"
+license=('GPL-2.0-or-later')
+depends=('linux-firmware-qcom' 'alsa-ucm-conf')
+options=('!debug')
+source=(
+  'hp-elitebook-ultra-g1q.ucm.conf'
+  'README.package.md'
+)
+sha256sums=('SKIP' 'SKIP')
+
+# The name ALSA looks a card configuration up by: the DMI-derived long name
+# the kernel builds in snd_soc_set_dmi_name() as
+# <board_vendor>-<product_name>[-<product_version>]-<board_name>, with every
+# character that is not a letter, digit, '.' or '_' dropped and '-' turned
+# into '_'. Read from `/proc/asound/cards` line 2 on the machine itself.
+_g1q_longname='HP-HPEliteBookUltraG1q14inchNotebookAIPC-ConfigID-8CBE'
+
+package() {
+  # The topology the G1q's device tree asks for by its `model` property
+  # (qcom/x1e80100/X1E80100-HP-ELITEBOOK-ULTRA-G1Q-tplg.bin), pointed at the
+  # blob linux-firmware already ships for the same audio hardware. Under
+  # updates/ so that the day linux-firmware adds the name, its file wins the
+  # search order and this one cannot collide with it in pacman.
+  install -d "${pkgdir}/usr/lib/firmware/updates/qcom/x1e80100"
+  ln -s ../../../qcom/x1e80100/X1E80100-Romulus-tplg.bin \
+    "${pkgdir}/usr/lib/firmware/updates/qcom/x1e80100/X1E80100-HP-ELITEBOOK-ULTRA-G1Q-tplg.bin"
+
+  # alsa-ucm-conf looks for conf.d/<card driver>/<card long name>.conf before
+  # falling back to the card driver's own file, so a machine the driver file's
+  # DMI regexes miss can be added here without touching a file alsa-ucm-conf
+  # owns.
+  install -Dm644 hp-elitebook-ultra-g1q.ucm.conf \
+    "${pkgdir}/usr/share/alsa/ucm2/conf.d/x1e80100/${_g1q_longname}.conf"
+
+  install -Dm644 README.package.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+}
