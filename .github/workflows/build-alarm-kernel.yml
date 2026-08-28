@@ -1,0 +1,130 @@
+name: ALARM linux-aarch64 with CONFIG_RESET_GPIO
+
+# Builds Arch Linux ARM's own core/linux-aarch64 PKGBUILD, unchanged except
+# for one config line (CONFIG_RESET_GPIO=m) and a pkgrel bump, inside an
+# Arch Linux ARM container on a native arm64 runner. This is the proof build
+# for JimmayVV/omarchy-iso#32: the WSA884x speaker amplifiers on Snapdragon X
+# laptops are released from shutdown through the reset framework, which needs
+# that option, and ALARM's config leaves it off.
+#
+# Nothing here is shipped by Omarchy. The package is a test artifact for the
+# G1q and the build log is the clean-chroot evidence ALARM's CONTRIBUTING asks
+# a contributor to have. The same one-line diff is what the ALARM PR carries.
+#
+# mode=probe (default on push): download, extract, apply the change, resolve
+#   the config, and show that RESET_GPIO=m is the only difference. Minutes.
+# mode=full: the whole makepkg. Hours on a 4-vCPU runner.
+
+on:
+  push:
+    branches: [alarm-reset-gpio]
+    paths:
+      - ".github/workflows/build-alarm-kernel.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "probe or full"
+        type: string
+        default: full
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 355
+    env:
+      MODE: ${{ inputs.mode || 'probe' }}
+      IMAGE: docker.io/menci/archlinuxarm:base-devel
+    steps:
+      - name: Runner facts
+        run: |
+          set -x
+          uname -a
+          nproc
+          free -h
+          df -h /
+          docker version --format '{{.Server.Version}}'
+
+      - name: Fetch ALARM's core/linux-aarch64
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/archlinuxarm/PKGBUILDs.git alarm
+          cd alarm
+          git sparse-checkout set core/linux-aarch64
+          echo "ALARM PKGBUILDs commit: $(git rev-parse HEAD)"
+          echo "ALARM_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          cd core/linux-aarch64
+          grep -E '^(pkgver|pkgrel|_srcname)=' PKGBUILD
+          grep -nE '^(# )?CONFIG_RESET_GPIO\b' config
+
+      - name: Apply the one-line change and the pkgrel bump
+        run: |
+          set -euo pipefail
+          cd alarm/core/linux-aarch64
+          grep -q '^# CONFIG_RESET_GPIO is not set$' config
+          sed -i 's/^# CONFIG_RESET_GPIO is not set$/CONFIG_RESET_GPIO=m/' config
+          rel=$(sed -n 's/^pkgrel=//p' PKGBUILD)
+          sed -i "s/^pkgrel=.*/pkgrel=$((rel + 1))/" PKGBUILD
+          git -C ../.. diff --stat
+          git -C ../.. diff -- core/linux-aarch64/config core/linux-aarch64/PKGBUILD | tee "$GITHUB_WORKSPACE/reset-gpio.diff"
+          # The builder user inside the container is uid 1000; the runner is 1001.
+          chmod -R a+rwX "$GITHUB_WORKSPACE/alarm"
+
+      - name: Build in an Arch Linux ARM container
+        run: |
+          set -euo pipefail
+          cat > build.sh <<'EOF'
+          set -euo pipefail
+          MODE="$1"
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm --needed base-devel pacman-contrib \
+            xmlto docbook-xsl kmod inetutils bc git uboot-tools vboot-utils dtc python
+          useradd -m -u 1000 builder || true
+          chown -R builder /work
+          cd /work/core/linux-aarch64
+          # Same -j as ALARM's chroot builders would get on this box.
+          echo "MAKEFLAGS=\"-j$(nproc)\"" >> /etc/makepkg.conf
+          grep -E '^(PKGEXT|MAKEFLAGS)=' /etc/makepkg.conf
+          su builder -c 'updpkgsums'
+          su builder -c 'git -C ../.. diff -- core/linux-aarch64/PKGBUILD'
+          if [ "$MODE" = probe ]; then
+            # Download, extract, run prepare() (patches + config copy). No build.
+            su builder -c 'makepkg -o --noconfirm'
+            cd src/linux-*/
+            su builder -c 'make olddefconfig'
+            echo "== RESET_GPIO in the resolved config =="
+            grep -nE 'CONFIG_RESET_GPIO\b' .config
+            echo "== every difference between the committed ALARM config and the resolved one =="
+            scripts/diffconfig ../../config .config || true
+            grep -q '^CONFIG_RESET_GPIO=m$' .config
+            exit 0
+          fi
+          start=$(date +%s)
+          su builder -c 'makepkg --noconfirm'
+          echo "makepkg wall-clock: $(( $(date +%s) - start ))s"
+          ls -la *.pkg.tar.*
+          cat src/linux-*/version
+          grep -nE 'CONFIG_RESET_GPIO\b' src/linux-*/.config
+          EOF
+          docker run --rm --privileged \
+            -v "$GITHUB_WORKSPACE/alarm:/work" \
+            -v "$GITHUB_WORKSPACE/build.sh:/build.sh:ro" \
+            "$IMAGE" bash /build.sh "$MODE" 2>&1 | tee build.log
+
+      - name: Collect
+        if: always()
+        run: |
+          mkdir -p out
+          cp -v reset-gpio.diff build.log out/ 2>/dev/null || true
+          cp -v alarm/core/linux-aarch64/*.pkg.tar.* out/ 2>/dev/null || true
+          cp -v alarm/core/linux-aarch64/src/linux-*/version out/kernel-version 2>/dev/null || true
+          echo "ALARM PKGBUILDs commit: $ALARM_COMMIT" > out/provenance.txt
+          ls -la out
+
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-aarch64-reset-gpio-${{ env.MODE }}
+          path: out/
+          if-no-files-found: error
+          retention-days: 14
