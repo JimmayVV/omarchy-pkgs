@@ -69,6 +69,23 @@ jobs:
           # The builder user inside the container is uid 1000; the runner is 1001.
           chmod -R a+rwX "$GITHUB_WORKSPACE/alarm"
 
+      # kernel.org from inside the container ran at ~170 KB/s and then reset
+      # the HTTP/2 stream (run 33144747826). Fetch on the host from the CDN
+      # with retries; makepkg uses the local file when it is already there.
+      - name: Prefetch the kernel tarball
+        run: |
+          set -euo pipefail
+          cd alarm/core/linux-aarch64
+          src=$(sed -n 's/^_srcname=//p' PKGBUILD)
+          want=$(sed -n "/^md5sums=/{s/.*(//;s/'//g;s/[^0-9a-f].*//;p;q}" PKGBUILD)
+          echo "tarball $src.tar.xz, ALARM md5 $want"
+          curl -fsSL --http1.1 --retry 8 --retry-delay 5 --retry-all-errors \
+            -o "$src.tar.xz" "https://cdn.kernel.org/pub/linux/kernel/v7.x/$src.tar.xz"
+          got=$(md5sum "$src.tar.xz" | cut -d' ' -f1)
+          ls -la "$src.tar.xz"
+          [[ $got == "$want" ]] || { echo "md5 mismatch: $got"; exit 1; }
+          chmod a+r "$src.tar.xz"
+
       - name: Build in an Arch Linux ARM container
         run: |
           set -euo pipefail
