@@ -79,8 +79,19 @@ jobs:
           src=$(sed -n 's/^_srcname=//p' PKGBUILD)
           want=$(sed -n "/^md5sums=/{s/.*(//;s/'//g;s/[^0-9a-f].*//;p;q}" PKGBUILD)
           echo "tarball $src.tar.xz, ALARM md5 $want"
-          curl -fsSL --http1.1 --retry 8 --retry-delay 5 --retry-all-errors \
-            -o "$src.tar.xz" "https://cdn.kernel.org/pub/linux/kernel/v7.x/$src.tar.xz"
+          # Run 33145247539: the CDN closed the transfer after 7 MiB, nine
+          # times in a row. Resume across attempts and rotate mirrors.
+          mirrors="https://cdn.kernel.org https://mirrors.edge.kernel.org https://mirrors.kernel.org https://www.kernel.org"
+          ok=0
+          for attempt in $(seq 1 15); do
+            for m in $mirrors; do
+              curl -fL --http1.1 -C - --retry 2 --retry-delay 3 --speed-limit 50000 --speed-time 60 \
+                -o "$src.tar.xz" "$m/pub/linux/kernel/v7.x/$src.tar.xz" 2>curl.err && { ok=1; break 2; }
+              echo "attempt $attempt via $m: $(tail -1 curl.err) ($(stat -c %s "$src.tar.xz" 2>/dev/null || echo 0) bytes so far)"
+              sleep 5
+            done
+          done
+          [[ $ok == 1 ]] || { echo "could not fetch the tarball"; exit 1; }
           got=$(md5sum "$src.tar.xz" | cut -d' ' -f1)
           ls -la "$src.tar.xz"
           [[ $got == "$want" ]] || { echo "md5 mismatch: $got"; exit 1; }
